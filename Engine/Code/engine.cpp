@@ -212,20 +212,22 @@ void Init(App* app)
 	glBindVertexArray(0);
 
 	// Àqui pones el nombre del programa(shader)
-	app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
-	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
-	app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
+	//app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
+	//Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
+	//app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
+	
+	app->texturedMeshProgramIdx = LoadProgram(app, "albedo_model_shader.glsl", "ALBEDO_MODEL");
+	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+	texturedMeshProgram.vertexInputLayout.attributes.push_back({0,3}); // position
+	texturedMeshProgram.vertexInputLayout.attributes.push_back({2,2}); // texCoord
+	// TODO: 11/05/23: Slide 8 to PDF 3. Rendering of meshes
 
 	app->info.glVersion = reinterpret_cast<const char*> (glGetString(GL_VERSION));
 	app->info.glRender = reinterpret_cast<const char*>  (glGetString(GL_RENDERER));
 	app->info.glVendor = reinterpret_cast<const char*>  (glGetString(GL_VENDOR));
 	app->info.glShadingVersion = reinterpret_cast<const char*>  (glGetString(GL_SHADING_LANGUAGE_VERSION));
 
-	app->diceTexIdx = LoadTexture2D(app, "dice.png");
 	app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
-	app->blackTexIdx = LoadTexture2D(app, "color_black.png");
-	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
-	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
 
 	GLint numExtensions = 0;
 	glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
@@ -236,6 +238,8 @@ void Init(App* app)
 	}
 
 	app->mode = Mode_TexturedQuad;
+
+
 }
 
 void Gui(App* app)
