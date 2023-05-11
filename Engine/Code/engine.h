@@ -65,6 +65,37 @@ const VertexV3V2 vertices[]= {
 
 };
 
+struct VertexBufferAttribute 
+{
+    u8 location;
+    u8 componentsCount;
+    u8 offset;
+};
+
+struct VertexBufferLayout
+{
+    std::vector<VertexBufferAttribute> attributes;
+    u8 stride;
+};
+
+struct VertexShaderAttribute
+{
+    u8 location;
+    u8 componentCount;
+};
+
+struct VertexShaderLayout 
+{
+    std::vector<VertexShaderAttribute> attributes;
+};
+
+struct Vao
+{
+    GLuint handle;
+    GLuint programHandle;
+};
+
+
 const u16 indices[]= {
    0,1,2,
    0,2,3
