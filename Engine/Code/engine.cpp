@@ -558,7 +558,7 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
 		for (u32 i = 0; i < program.vertexInputLayout.attributes.size(); ++i)
 		{
 			bool attributeWasLinked = false;
-			for (u32 j = 8; j < submesh.vertexBufferLayout.attributes.size(); ++j)
+			for (u32 j = 0; j < submesh.vertexBufferLayout.attributes.size(); ++j)
 			{
 				if (program.vertexInputLayout.attributes[i].location == submesh.vertexBufferLayout.attributes[j].location)
 				{
