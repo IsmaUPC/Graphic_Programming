@@ -10,6 +10,11 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
+#include <assimp/cimport.h>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
+
 GLuint CreateProgramFromSource(String programSource, const char* shaderName)
 {
 	GLchar  infoLogBuffer[1024] = {};
@@ -178,196 +183,8 @@ u32 LoadTexture2D(App* app, const char* filepath)
 	}
 }
 
-void Init(App* app)
-{
-	// TODO: Initialize your resources here!
-	// - vertex buffers
-	// - element/index buffers
-	// - vaos
-	// - programs (and retrieve uniform indices)
-	// - textures
-
-	glGenBuffers(1, &app->embeddedVertices);
-	glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	glGenBuffers(1, &app->embeddedElements);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-	glGenVertexArrays(1, &app->vao);
-	glBindVertexArray(app->vao);
-	glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
-
-	//los strides saltan de vertice a UV
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)0);
-	glEnableVertexAttribArray(0);
-	// para saber la longitud del float
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
-	glBindVertexArray(0);
-
-	// Àqui pones el nombre del programa(shader)
-	//app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
-	//Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
-	//app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
-	
-	app->texturedMeshProgramIdx = LoadProgram(app, "albedo_model_shader.glsl", "ALBEDO_MODEL");
-	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-	texturedMeshProgram.vertexInputLayout.attributes.push_back({0,3}); // position
-	texturedMeshProgram.vertexInputLayout.attributes.push_back({2,2}); // texCoord
-	// TODO: 11/05/23: Slide 8 to PDF 3. Rendering of meshes
-
-	app->info.glVersion = reinterpret_cast<const char*> (glGetString(GL_VERSION));
-	app->info.glRender = reinterpret_cast<const char*>  (glGetString(GL_RENDERER));
-	app->info.glVendor = reinterpret_cast<const char*>  (glGetString(GL_VENDOR));
-	app->info.glShadingVersion = reinterpret_cast<const char*>  (glGetString(GL_SHADING_LANGUAGE_VERSION));
-
-	app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
-
-	GLint numExtensions = 0;
-	glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-
-	for (GLint i = 0; i < numExtensions; i++)
-	{
-		app->info.glExternsion.push_back(reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, GLuint(i))));
-	}
-
-	//app->mode = Mode_TexturedQuad;
-	app->mode = Mode_Mesh;
 
 
-}
-
-void Gui(App* app)
-{
-	ImGui::Begin("Info");
-	ImGui::Text("FPS: %f", 1.0f / app->deltaTime);
-	ImGui::End();
-	if (app->input.keys[Key::K_SPACE] == ButtonState::BUTTON_PRESS) {
-		ImGui::OpenPopup("openGL Info");
-	}
-
-	if (ImGui::BeginPopup("openGL Info"))
-	{
-
-		ImGui::Text("Version: %s", app->info.glVersion.c_str());
-		ImGui::Text("Renderer: %s", app->info.glRender.c_str());
-		ImGui::Text("Vendor: %s", app->info.glVendor.c_str());
-		ImGui::Text("GLSL Version: %s", app->info.glShadingVersion.c_str());
-
-
-		ImGui::Separator();
-
-		for (size_t i = 0; i < app->info.glShadingVersion.size(); i++)
-		{
-			ImGui::Text("%s", app->info.glShadingVersion.c_str());
-		}
-		ImGui::EndPopup();
-	}
-}
-
-void Update(App* app)
-{
-	// You can handle app->input keyboard/mouse here
-
-
-}
-
-void Render(App* app)
-{
-	switch (app->mode)
-	{
-	case Mode_TexturedQuad:
-	{
-		int success;
-		char infoLog[1024];
-
-		// TODO: Draw your textured quad here!
-		// - clear the framebuffer
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// - set the viewport
-		glViewport(0, 0, app->displaySize.x, app->displaySize.y);
-
-		// - set the blending state	
-		// - bind the texture into unit 0
-		// - bind the program 
-		//   (...and make its texture sample from unit 0)
-		// - bind the vao
-
-		Program& programTexturedGeometry = app->programs[app->texturedGeometryProgramIdx];
-
-		glGetProgramiv(programTexturedGeometry.handle, GL_LINK_STATUS, &success);
-		if (!success) {
-			glGetProgramInfoLog(programTexturedGeometry.handle, 1024,NULL, infoLog);
-			ELOG("glCompileShader() failed with vertex shader %s\nReported message:\n%s\n", programTexturedGeometry.programName, infoLog);
-
-		}
-
-		glUseProgram(programTexturedGeometry.handle);
-		glBindVertexArray(app->vao);
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		glUniform1i(app->programUniformTexture, 0);
-		glActiveTexture(GL_TEXTURE0);
-		GLuint textureHandle = app->textures[app->diceTexIdx].handle;
-		glBindTexture(GL_TEXTURE_2D, textureHandle);
-
-
-		// - glDrawElements() !!!
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
-
-		glBindVertexArray(0);
-		glUseProgram(0);
-	}
-	break;
-	case Mode_Mesh:
-	{
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-		glUseProgram(texturedMeshProgram.handle);
-
-		Model& model = app->models[app->model];
-		Mesh& mesh = app->meshes[model.meshIdx];
-
-		for (u32 i = 0; i < mesh.submeshes.size(); ++i)
-		{
-			GLuint vao = FindVAO(mesh, i, texturedMeshProgram);
-			glBindVertexArray(vao);
-
-			u32 submeshMaterialIdx = model.materialIdx[i];
-			Material& submeshMaterial = app->materials[submeshMaterialIdx];
-
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
-			glUniform1i(app->texturedMeshProgram_uTexture, 0);
-
-			Submesh& submesh = mesh.submeshes[i];
-			glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
-		}
-	}
-	break;
-
-	default:;
-	}
-}
-
-
-
-#include <assimp/cimport.h>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 
 void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices)
 {
@@ -611,3 +428,248 @@ u32 LoadModel(App* app, const char* filename)
 
 	return modelIdx;
 }
+
+
+void Init(App* app)
+{
+	// TODO: Initialize your resources here!
+	// - vertex buffers
+	// - element/index buffers
+	// - vaos
+	// - programs (and retrieve uniform indices)
+	// - textures
+
+	glGenBuffers(1, &app->embeddedVertices);
+	glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glGenBuffers(1, &app->embeddedElements);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	glGenVertexArrays(1, &app->vao);
+	glBindVertexArray(app->vao);
+	glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
+
+	//los strides saltan de vertice a UV
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)0);
+	glEnableVertexAttribArray(0);
+	// para saber la longitud del float
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
+	glBindVertexArray(0);
+
+	// Àqui pones el nombre del programa(shader)
+	//app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
+	//Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
+	//app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
+	
+	app->texturedMeshProgramIdx = LoadProgram(app, "albedo_model_shader.glsl", "ALBEDO_MODEL");
+	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+	texturedMeshProgram.vertexInputLayout.attributes.push_back({0,3}); // position
+	texturedMeshProgram.vertexInputLayout.attributes.push_back({2,2}); // texCoord
+	
+																	   
+
+	app->model = LoadModel(app,"Patrick/Patrick.obj");
+
+
+	app->info.glVersion = reinterpret_cast<const char*> (glGetString(GL_VERSION));
+	app->info.glRender = reinterpret_cast<const char*>  (glGetString(GL_RENDERER));
+	app->info.glVendor = reinterpret_cast<const char*>  (glGetString(GL_VENDOR));
+	app->info.glShadingVersion = reinterpret_cast<const char*>  (glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+	app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
+
+	GLint numExtensions = 0;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+
+	for (GLint i = 0; i < numExtensions; i++)
+	{
+		app->info.glExternsion.push_back(reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, GLuint(i))));
+	}
+
+	//app->mode = Mode_TexturedQuad;
+	app->mode = Mode_Mesh;
+
+
+}
+
+void Gui(App* app)
+{
+	ImGui::Begin("Info");
+	ImGui::Text("FPS: %f", 1.0f / app->deltaTime);
+	ImGui::End();
+	if (app->input.keys[Key::K_SPACE] == ButtonState::BUTTON_PRESS) {
+		ImGui::OpenPopup("openGL Info");
+	}
+
+	if (ImGui::BeginPopup("openGL Info"))
+	{
+
+		ImGui::Text("Version: %s", app->info.glVersion.c_str());
+		ImGui::Text("Renderer: %s", app->info.glRender.c_str());
+		ImGui::Text("Vendor: %s", app->info.glVendor.c_str());
+		ImGui::Text("GLSL Version: %s", app->info.glShadingVersion.c_str());
+
+
+		ImGui::Separator();
+
+		for (size_t i = 0; i < app->info.glShadingVersion.size(); i++)
+		{
+			ImGui::Text("%s", app->info.glShadingVersion.c_str());
+		}
+		ImGui::EndPopup();
+	}
+}
+
+void Update(App* app)
+{
+	// You can handle app->input keyboard/mouse here
+
+
+}
+
+
+GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
+{
+	Submesh& submesh = mesh.submeshes[submeshIndex];
+
+	// Try finding a vao for this submesh/program
+	for (u32 i = 0; i < (u32)submesh.vaos.size(); ++i)
+		if (submesh.vaos[i].programHandle == program.handle)
+			return submesh.vaos[i].handle;
+
+	GLuint vaoHandle = 0;
+
+	// Create a new vao for this submesh/program
+	{
+		glGenVertexArrays(1, &vaoHandle);
+		glBindVertexArray(vaoHandle);
+
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBufferHandle);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBufferHandle);
+
+		// We have to link all vertex inputs attributes to attributes in the vertex buffer
+		for (u32 i = 0; i < program.vertexInputLayout.attributes.size(); ++i)
+		{
+			bool attributeWasLinked = false;
+			for (u32 j = 8; j < submesh.vertexBufferLayout.attributes.size(); ++j)
+			{
+				if (program.vertexInputLayout.attributes[i].location == submesh.vertexBufferLayout.attributes[j].location)
+				{
+					const u32 index = submesh.vertexBufferLayout.attributes[j].location;
+					const u32 ncomp = submesh.vertexBufferLayout.attributes[j].componentsCount;
+					const u32 offset = submesh.vertexBufferLayout.attributes[j].offset + submesh.vertexOffset; // attribute offset + vertex offset
+					const u32 stride = submesh.vertexBufferLayout.stride;
+					glVertexAttribPointer(index, ncomp, GL_FLOAT, GL_FALSE, stride, (void*)(u64)offset);
+					glEnableVertexAttribArray(index);
+
+					attributeWasLinked = true;
+					break;
+				}
+			}
+			assert(attributeWasLinked); // The submesh should provide an attribute for each vertex inputs
+		}
+
+		glBindVertexArray(0);
+	}
+
+
+	// Store it in the list of vaos for this submesh
+	Vao vao = { vaoHandle, program.handle };
+	submesh.vaos.push_back(vao);
+
+	return vaoHandle;
+}
+
+
+void Render(App* app)
+{
+	switch (app->mode)
+	{
+	case Mode_TexturedQuad:
+	{
+		int success;
+		char infoLog[1024];
+
+		// TODO: Draw your textured quad here!
+		// - clear the framebuffer
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// - set the viewport
+		glViewport(0, 0, app->displaySize.x, app->displaySize.y);
+
+		// - set the blending state	
+		// - bind the texture into unit 0
+		// - bind the program 
+		//   (...and make its texture sample from unit 0)
+		// - bind the vao
+
+		Program& programTexturedGeometry = app->programs[app->texturedGeometryProgramIdx];
+
+		glGetProgramiv(programTexturedGeometry.handle, GL_LINK_STATUS, &success);
+		if (!success) {
+			glGetProgramInfoLog(programTexturedGeometry.handle, 1024,NULL, infoLog);
+			ELOG("glCompileShader() failed with vertex shader %s\nReported message:\n%s\n", programTexturedGeometry.programName.c_str(), infoLog);
+
+		}
+
+		glUseProgram(programTexturedGeometry.handle);
+		glBindVertexArray(app->vao);
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		glUniform1i(app->programUniformTexture, 0);
+		glActiveTexture(GL_TEXTURE0);
+		GLuint textureHandle = app->textures[app->diceTexIdx].handle;
+		glBindTexture(GL_TEXTURE_2D, textureHandle);
+
+
+		// - glDrawElements() !!!
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+		glBindVertexArray(0);
+		glUseProgram(0);
+	}
+	break;
+	case Mode_Mesh:
+	{
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+		glUseProgram(texturedMeshProgram.handle);
+
+		Model& model = app->models[app->model];
+		Mesh& mesh = app->meshes[model.meshIdx];
+
+		for (u32 i = 0; i < mesh.submeshes.size(); ++i)
+		{
+			GLuint vao = FindVAO(mesh, i, texturedMeshProgram);
+			glBindVertexArray(vao);
+
+			u32 submeshMaterialIdx = model.materialIdx[i];
+			Material& submeshMaterial = app->materials[submeshMaterialIdx];
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
+			glUniform1i(app->texturedMeshProgram_uTexture, 0);
+
+			Submesh& submesh = mesh.submeshes[i];
+			glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
+		}
+	}
+	break;
+
+	default:;
+	}
+}
+

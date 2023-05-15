@@ -35,6 +35,73 @@ enum Mode
 	Mode_Count
 };
 
+
+
+
+struct OpenFLInfo {
+
+	std::string glVersion;
+	std::string glRender;
+	std::string glVendor;
+	std::string glShadingVersion;
+
+	std::vector <std::string> glExternsion;
+};
+
+struct VertexV3V2 {
+	glm::vec3 pos;
+	glm::vec2 uv;
+};
+
+const VertexV3V2 vertices[] = {
+	{glm::vec3(-0.5,-0.5,0.0),glm::vec2(0.0,0.0)},
+	{glm::vec3(0.5,-0.5,0.0),glm::vec2(1.0,0.0)},
+	{glm::vec3(0.5,0.5,0.0),glm::vec2(1.0,1.0)},
+	{glm::vec3(-0.5,0.5,0.0),glm::vec2(0.0,1.0)},
+
+};
+
+
+
+struct VertexBufferAttribute
+{
+	u8 location;
+	u8 componentsCount;
+	u8 offset;
+};
+
+struct VertexBufferLayout
+{
+	std::vector<VertexBufferAttribute> attributes;
+	u8 stride;
+};
+
+struct VertexShaderAttribute
+{
+	u8 location;
+	u8 componentCount;
+};
+
+struct VertexShaderLayout
+{
+	std::vector<VertexShaderAttribute> attributes;
+};
+struct Program
+{
+	GLuint             handle;
+	std::string        filepath;
+	std::string        programName;
+	u64                lastWriteTimestamp; // What is this for?
+	//VertexShaderAttribute  vertexInputLayout; // Old
+	VertexShaderLayout  vertexInputLayout;
+};
+
+struct Vao
+{
+	GLuint handle;
+	GLuint programHandle;
+};
+
 struct Model {
 	u32 meshIdx;
 	std::vector<u32> materialIdx;
@@ -72,71 +139,6 @@ struct Material
 
 
 
-struct OpenFLInfo {
-
-	std::string glVersion;
-	std::string glRender;
-	std::string glVendor;
-	std::string glShadingVersion;
-
-	std::vector <std::string> glExternsion;
-};
-
-struct VertexV3V2 {
-	glm::vec3 pos;
-	glm::vec2 uv;
-};
-
-const VertexV3V2 vertices[] = {
-	{glm::vec3(-0.5,-0.5,0.0),glm::vec2(0.0,0.0)},
-	{glm::vec3(0.5,-0.5,0.0),glm::vec2(1.0,0.0)},
-	{glm::vec3(0.5,0.5,0.0),glm::vec2(1.0,1.0)},
-	{glm::vec3(-0.5,0.5,0.0),glm::vec2(0.0,1.0)},
-
-};
-
-struct Program
-{
-	GLuint             handle;
-	std::string        filepath;
-	std::string        programName;
-	u64                lastWriteTimestamp; // What is this for?
-	//VertexShaderAttribute  vertexInputLayout; // Old
-	VertexShaderLayout  vertexInputLayout;
-};
-
-
-struct VertexBufferAttribute
-{
-	u8 location;
-	u8 componentsCount;
-	u8 offset;
-};
-
-struct VertexBufferLayout
-{
-	std::vector<VertexBufferAttribute> attributes;
-	u8 stride;
-};
-
-struct VertexShaderAttribute
-{
-	u8 location;
-	u8 componentCount;
-};
-
-struct VertexShaderLayout
-{
-	std::vector<VertexShaderAttribute> attributes;
-};
-
-struct Vao
-{
-	GLuint handle;
-	GLuint programHandle;
-};
-
-
 const u16 indices[] = {
    0,1,2,
    0,2,3
@@ -168,6 +170,7 @@ struct App
 	// program indices
 	u32 texturedGeometryProgramIdx;
 	u32 texturedMeshProgramIdx;
+	u32 model;
 
 	// texture indices
 	u32 diceTexIdx;
@@ -194,58 +197,6 @@ struct App
 	// VAO object to link our screen filling quad with our textured quad shader
 	GLuint vao;
 };
-
-GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
-{
-	Submesh& submesh = mesh.submeshes[submeshIndex];
-
-	// Try finding a vao for this submesh/program
-	for (u32 i = 0; i < (u32)submesh.vaos.size(); ++i)
-		if (submesh.vaos[i].programHandle == program.handle)
-			return submesh.vaos[i].handle;
-
-	GLuint vaoHandle = 0;
-
-	// Create a new vao for this submesh/program
-	{
-		glGenVertexArrays(1, &vaoHandle);
-		glBindVertexArray(vaoHandle);
-
-		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBufferHandle);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBufferHandle);
-
-		// We have to link all vertex inputs attributes to attributes in the vertex buffer
-		for (u32 i = 0; i < program.vertexInputLayout.attributes.size(); ++i)
-		{
-			bool attributeWasLinked = false;
-			for (u32 j = 8; j < submesh.vertexBufferLayout.attributes.size(); ++j)
-			{
-				if (program.vertexInputLayout.attributes[i].location == submesh.vertexBufferLayout.attributes[j].location)
-				{
-					const u32 index = submesh.vertexBufferLayout.attributes[j].location;
-					const u32 ncomp = submesh.vertexBufferLayout.attributes[j].componentsCount;
-					const u32 offset = submesh.vertexBufferLayout.attributes[j].offset + submesh.vertexOffset; // attribute offset + vertex offset
-					const u32 stride = submesh.vertexBufferLayout.stride;
-					glVertexAttribPointer(index, ncomp, GL_FLOAT, GL_FALSE, stride, (void*)(u64)offset);
-					glEnableVertexAttribArray(index);
-
-					attributeWasLinked = true;
-					break;
-				}
-			}
-			assert(attributeWasLinked); // The submesh should provide an attribute for each vertex inputs
-		}
-
-		glBindVertexArray(0);
-	}
-
-
-	// Store it in the list of vaos for this submesh
-	Vao vao = { vaoHandle, program.handle };
-	submesh.vaos.push_back(vao);
-
-	return vaoHandle;
-}
 
 void Init(App* app);
 
