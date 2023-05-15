@@ -7,12 +7,31 @@
 #include "platform.h"
 #include <glad/glad.h>
 
+
+#include <glm/vec3.hpp> // glm::vec3
+#include <glm/vec4.hpp> // glm::vec4
+#include <glm/mat4x4.hpp> // glm::mat4
+#include <glm/gtc/matrix_transform.hpp>
+
 typedef glm::vec2  vec2;
 typedef glm::vec3  vec3;
 typedef glm::vec4  vec4;
 typedef glm::ivec2 ivec2;
 typedef glm::ivec3 ivec3;
 typedef glm::ivec4 ivec4;
+
+glm::mat4 TransformScale(const vec3& scaleFactors)
+{
+	glm::mat4 transform = scale(scaleFactors);
+	return transform;
+}
+glm::mat4 TransformPositionScale(const vec3& pos, const vec3& scaleFactors)
+{
+	glm::mat4 transform = translate(pos);
+	transform = scale(transform,scaleFactors);
+	return transform;
+}
+
 
 struct Image
 {
@@ -34,8 +53,6 @@ enum Mode
 	Mode_Mesh,
 	Mode_Count
 };
-
-
 
 
 struct OpenFLInfo {
