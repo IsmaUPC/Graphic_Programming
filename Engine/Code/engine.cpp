@@ -566,6 +566,19 @@ u8 GetComponentCount(GLenum attributeType)
 {
     switch (attributeType)
     {
+    case GL_FLOAT: return 1;
+    case GL_FLOAT_VEC2: return 2;
+    case GL_FLOAT_VEC3: return 3;
+    case GL_FLOAT_VEC4: return 4;
+    case GL_FLOAT_MAT2: return 4;
+    case GL_FLOAT_MAT3: return 9;
+    case GL_FLOAT_MAT4: return 16;
+    case GL_FLOAT_MAT2x3: return 6;
+    case GL_FLOAT_MAT2x4: return 8;
+    case GL_FLOAT_MAT3x2: return 6;
+    case GL_FLOAT_MAT3x4: return 12;
+    case GL_FLOAT_MAT4x2: return 8;
+    case GL_FLOAT_MAT4x3: return 12;
     default:
         break;  
 
