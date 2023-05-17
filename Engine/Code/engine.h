@@ -30,7 +30,6 @@ class Camerai
 {
 public:
 	vec3 pos ;
-	vec3 target;
 	vec3 upGlobalVec;
 	vec3 rCamVec;
 	vec3 upCamVec;
@@ -41,10 +40,9 @@ public:
 	Camerai() 
 	{
 		pos = { 0,0,0 };
-		target = { 0,0,1 };
 		upGlobalVec = { 0,1,0 };
 		rCamVec = { 0,1,0 };
-		camDir = { 0,0,0 };
+		camDir = { 0,0,-1 };
 	}
 
 };
@@ -187,7 +185,11 @@ const u16 indices[] = {
    0,2,3
 
 };
+
+
 u32 Align(u32 value, u32 alignment);
+
+u8 GetComponentCount(GLenum attributeType);
 
 struct App
 {
