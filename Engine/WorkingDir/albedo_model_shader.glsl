@@ -7,12 +7,22 @@
 
 
 layout(location = 0) in vec3 aPosition;
-//layout(location = 1) in vec3 aNormal
+layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aTexCoord;
 //layout(location = 3) in vec3 aTangent;
 //layout(location = 4) in vec3 aBitangent;
 
+layout(binding = 1, std140) uniform LocalParams
+{
+	mat4 uWorldMatrix;
+	mat4 uWorldViewProjectionMatrix;
+};
+
 out vec2 vTexCoord;
+out vec3 vPosition;
+out vec3 vNormal;
+out vec3 vViewDir;
+
 
 void main()
 {
@@ -21,12 +31,16 @@ void main()
 	// it is usually conputed by the pojection matrix, Because
 	// we are not clipping scale so that Patrick fits the screen.
 
-	float clippingScale = 5.0;
+	vPosition = vec3( uWorldMatrix * vec4(aPosition, 1.0));
+	vNormal =	vec3( uWorldMatrix * vec4(aNormal, 0.0));
 
-	gl_Position = vec4(aPosition, clippingScale);
+	gl_Position = uWorldViewProjectionMatrix * vec4(aPosition, 1.0);
+
+	//float clippingScale = 5.0;
+	//gl_Position = vec4(aPosition, clippingScale);
 
 	// Patrick looks away from the camera by default, so i flip it here.
-	gl_Position.z = -gl_Position.z;
+	//gl_Position.z = -gl_Position.z;
 
 }
 //TODO: Seguir desde la slide 3 del pdf 3.Rendering of meshes
@@ -35,6 +49,10 @@ void main()
 
 
 in vec2 vTexCoord;
+in vec3 vPosition;
+in vec3 vNormal;
+in vec3 vViewDir;
+
 
 uniform sampler2D uTexture;
 

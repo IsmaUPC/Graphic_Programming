@@ -4,6 +4,9 @@
 
 #pragma once
 
+
+#define BINDING(b) b
+
 #include "platform.h"
 #include <glad/glad.h>
 
@@ -19,19 +22,40 @@ typedef glm::vec4  vec4;
 typedef glm::ivec2 ivec2;
 typedef glm::ivec3 ivec3;
 typedef glm::ivec4 ivec4;
+typedef glm::mat4 mat4;
 
-glm::mat4 TransformScale(const vec3& scaleFactors)
-{
-	glm::mat4 transform = scale(scaleFactors);
-	return transform;
-}
-glm::mat4 TransformPositionScale(const vec3& pos, const vec3& scaleFactors)
-{
-	glm::mat4 transform = translate(pos);
-	transform = scale(transform,scaleFactors);
-	return transform;
-}
 
+
+class Camerai
+{
+public:
+	vec3 pos ;
+	vec3 target;
+	vec3 upGlobalVec;
+	vec3 rCamVec;
+	vec3 upCamVec;
+	vec3 camDir;
+	
+	const float cameraSpeed = 0.05f;
+
+	Camerai() 
+	{
+		pos = { 0,0,0 };
+		target = { 0,0,1 };
+		upGlobalVec = { 0,1,0 };
+		rCamVec = { 0,1,0 };
+		camDir = { 0,0,0 };
+	}
+
+};
+
+struct Entity
+{
+	glm::mat4 worldMatrix;
+	u32 modelIndex;
+	u32 localParamsOffset;
+	u32 localParamsSize;
+};
 
 struct Image
 {
@@ -79,7 +103,6 @@ const VertexV3V2 vertices[] = {
 };
 
 
-
 struct VertexBufferAttribute
 {
 	u8 location;
@@ -97,6 +120,10 @@ struct VertexShaderAttribute
 {
 	u8 location;
 	u8 componentCount;
+	VertexShaderAttribute(u8 _location, u8 _componentCount) {
+		location = _location;
+		componentCount = _componentCount;
+	};
 };
 
 struct VertexShaderLayout
@@ -155,14 +182,21 @@ struct Material
 };
 
 
-
 const u16 indices[] = {
    0,1,2,
    0,2,3
 
 };
+u32 Align(u32 value, u32 alignment);
+
 struct App
 {
+
+	mat4 worlViewProjectiondMatrix;
+	mat4 worldMatrix;
+	GLuint bufferHandle;
+	Camerai* camerai;
+
 	// Loop
 	f32  deltaTime;
 	bool isRunning;
@@ -182,7 +216,7 @@ struct App
 	std::vector<Model> models;
 	std::vector<Program>  programs;
 
-
+	std::vector<Entity> entities;
 
 	// program indices
 	u32 texturedGeometryProgramIdx;
@@ -196,6 +230,9 @@ struct App
 	u32 normalTexIdx;
 	u32 magentaTexIdx;
 
+	u32 blockOffset;
+	u32 blockSize;
+
 	// Mode
 	Mode mode;
 
@@ -206,14 +243,18 @@ struct App
 
 	// Location of the texture uniform in the textured quad shader
 	GLuint programUniformTexture;
-
 	GLuint texturedMeshProgram_uTexture;
+
+
+	GLint maxUniformBufferSize;
+	GLint uniformBlockAlignment;
 
 	OpenFLInfo info;
 
 	// VAO object to link our screen filling quad with our textured quad shader
 	GLuint vao;
 };
+
 
 void Init(App* app);
 
