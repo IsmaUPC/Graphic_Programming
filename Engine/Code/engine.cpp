@@ -16,11 +16,73 @@
 #include <GLFW/glfw3.h>
 
 
+bool IsPowerOf2(u32 value)
+{
+	return value && !(value & (value - 1));
+}
 
 u32 Align(u32 value, u32 alignment)
 {
-	return(value + alignment - 1) & ~(alignment - 1);
+	return (value + alignment - 1) & ~(alignment - 1);
 }
+
+Buffer CreateBuffer(u32 size, GLenum type, GLenum usage)
+{
+	Buffer buffer = {};
+	buffer.size = size;
+	buffer.type = type;
+
+	glGenBuffers(1, &buffer.handle);
+	glBindBuffer(type, buffer.handle);
+	glBufferData(type, buffer.size, NULL, usage);
+	glBindBuffer(type, 0);
+
+	return buffer;
+}
+
+#define CreateConstantBuffer(size) CreateBuffer(size, GL_UNIFORM_BUFFER, GL_STREAM_DRAW)
+#define CreateStaticVertexBuffer(size) CreateBuffer(size, GL_ARRAY_BUFFER, GL_STATIC_DRAW)
+#define CreateStaticIndexBuffer(size) CreateBuffer(size, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW)
+
+void BindBuffer(const Buffer& buffer)
+{
+	glBindBuffer(buffer.type, buffer.handle);
+}
+
+void MapBuffer(Buffer& buffer, GLenum access)
+{
+	glBindBuffer(buffer.type, buffer.handle);
+	buffer.data = (u8*)glMapBuffer(buffer.type, access);
+	buffer.head = 0;
+}
+
+void UnmapBuffer(Buffer& buffer)
+{
+	glUnmapBuffer(buffer.type);
+	glBindBuffer(buffer.type, 0);
+}
+
+void AlignHead(Buffer& buffer, u32 alignment)
+{
+	ASSERT(IsPowerOf2(alignment), "The alignment must be a power of 2");
+	buffer.head = Align(buffer.head, alignment);
+}
+
+void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment)
+{
+	ASSERT(buffer.data != NULL, "The buffer must be mapped first");
+	AlignHead(buffer, alignment);
+	memcpy((u8*)buffer.data + buffer.head, data, size);
+	buffer.head += size;
+}
+
+#define PushData(buffer, data, size) PushAlignedData(buffer, data, size, 1)
+#define PushUInt(buffer, value) { u32 v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
+#define PushVec3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+#define PushVec4(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+#define PushMat3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+#define PushMat4(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+
 GLuint CreateProgramFromSource(String programSource, const char* shaderName)
 {
 	GLchar  infoLogBuffer[1024] = {};
@@ -488,8 +550,8 @@ void Init(App* app)
 	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
 	float znear = 0.1f;
 	float zfar = 1000.0f;
-	app->worlViewProjectiondMatrix = glm::perspective(glm::radians(60.0f), aspectRatio, znear, zfar);
-	app->worldMatrix = glm::lookAt(app->camerai->pos, app->camerai->camDir, app->camerai->upGlobalVec);
+	app->projection = glm::perspective(glm::radians(60.0f), aspectRatio, znear, zfar);
+	app->view = glm::lookAt(app->camerai->pos, app->camerai->camDir, app->camerai->upGlobalVec);
 	//app->worlViewProjectiondMatrix = glm::lookAt(app->camerai->pos, app->camerai->target, app->camerai->upGlobalVec);
    // app->worldMatrix = glm::mat4(0);
 	//////
@@ -554,8 +616,35 @@ void Init(App* app)
 		app->info.glExternsion.push_back(reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, GLuint(i))));
 	}
 
+	// Slide 6{
+
+	GLint maxUniformBufferSize;
+
+	glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUniformBufferSize);
+	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &app->uniformBufferAlignment);
+
+	glGenBuffers(1, &app->bufferHandle);
+	glBindBuffer(GL_UNIFORM_BUFFER, app->bufferHandle);
+	glBufferData(GL_UNIFORM_BUFFER, maxUniformBufferSize, NULL, GL_STREAM_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	app->cbuffer = CreateBuffer(maxUniformBufferSize, GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
+
+	Light light1;
+	light1.type= LightType_Point;
+	light1.color= vec3(1,1,0);
+	light1.position=vec3(0, 10, 0);
+
+	Light light2;
+	light2.type= LightType_Point;
+	light2.color= vec3(0,1,0.7f);
+	light2.position= vec3(5, 5, 0);
+
+	// } Slide 6
+
 	//app->mode = Mode_TexturedQuad;
 	app->mode = Mode_Mesh;
+
 
 }
 
@@ -667,24 +756,63 @@ void Update(App* app)
 	u8* bufferData = (u8*)glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
 	u32 bufferHead = 0;
 
-	app->worldMatrix = glm::lookAt(app->camerai->pos, app->camerai->pos + app->camerai->camDir, app->camerai->upGlobalVec);
-	for (int i = 0; i < app->entities.size(); i++)
+	app->view = glm::lookAt(app->camerai->pos, app->camerai->pos + app->camerai->camDir, app->camerai->upGlobalVec);
+	// slide 6{
+	MapBuffer(app->cbuffer, GL_WRITE_ONLY);
+
+	app->globalParamsOffset = app->cbuffer.head;
+	PushVec3(app->cbuffer, app->camerai->pos);
+	PushUInt(app->cbuffer, app->lights.size());
+
+	for (u32 i = 0; i < app->lights.size(); i++)
 	{
-		bufferHead = Align(bufferHead, app->uniformBlockAlignment);
-		app->entities[i].localParamsOffset = bufferHead;
+		AlignHead(app->cbuffer, sizeof(vec4));
 
-		memcpy(bufferData + bufferHead, glm::value_ptr(app->entities[i].worldMatrix), sizeof(glm::mat4));
-		bufferHead += sizeof(glm::mat4);
-
-		mat4 worldViewProjectionMatrix = app->worlViewProjectiondMatrix * app->worldMatrix * app->entities[i].worldMatrix;
-
-		memcpy(bufferData + bufferHead, glm::value_ptr(worldViewProjectionMatrix), sizeof(glm::mat4));
-		bufferHead += sizeof(glm::mat4);
-
-		app->entities[i].localParamsSize = bufferHead - app->entities[i].localParamsOffset;
+		Light& light = app->lights[i];
+		PushUInt(app->cbuffer, light.type);
+		PushVec3(app->cbuffer, light.color);
+		PushVec3(app->cbuffer, light.direction);
+		PushVec3(app->cbuffer, light.position);
 	}
+	app->globalParamsSize = app->cbuffer.head - app->globalParamsOffset;
+	for (u64 i = 0; i < app->entities.size(); ++i)
+	{
+		AlignHead(app->cbuffer, app->uniformBufferAlignment);
+
+		Entity& entity = app->entities[i];
+		mat4 world = entity.worldMatrix;
+		world = glm::scale((entity.worldMatrix, vec3(0.45f)));
+		mat4 worldViewProjection = app->projection *  app->view * app->entities[i].worldMatrix;
+
+		entity.localParamsOffset = app->cbuffer.head;
+		PushMat4(app->cbuffer, world);
+		PushMat4(app->cbuffer, worldViewProjection);
+		entity.localParamsSize = app->cbuffer.head - entity.localParamsOffset;
+	}
+	 //} slide 6
+
+	//for (int i = 0; i < app->entities.size(); i++)
+	//{
+	//	bufferHead = Align(bufferHead, app->uniformBlockAlignment);
+	//	app->entities[i].localParamsOffset = bufferHead;
+
+	//	memcpy(bufferData + bufferHead, glm::value_ptr(app->entities[i].worldMatrix), sizeof(glm::mat4));
+	//	bufferHead += sizeof(glm::mat4);
+
+	//	mat4 worldViewProjectionMatrix = app->projection * app->view * app->entities[i].worldMatrix;
+
+	//	memcpy(bufferData + bufferHead, glm::value_ptr(worldViewProjectionMatrix), sizeof(glm::mat4));
+	//	bufferHead += sizeof(glm::mat4);
+
+	//	app->entities[i].localParamsSize = bufferHead - app->entities[i].localParamsOffset;
+	//}
+
 	glUnmapBuffer(GL_UNIFORM_BUFFER);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	glUnmapBuffer(app->cbuffer.type);
+	glBindBuffer(app->cbuffer.type, 0);
+
 }
 
 GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)

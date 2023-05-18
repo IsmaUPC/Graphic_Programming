@@ -47,6 +47,15 @@ public:
 
 };
 
+struct Buffer
+{
+	GLuint handle;
+	GLenum type;
+	u32 size;
+	u32 head;
+	void* data;
+};
+
 struct Entity
 {
 	glm::mat4 worldMatrix;
@@ -179,13 +188,20 @@ struct Material
 	u32 bumpTextureIdx;
 };
 
+enum LightType 
+{
+	LightType_Directional,
+	LightType_Point,
+
+};
+
 struct Light
 {
-	int type;
-	vec3 color;
-	vec3 position;
-	float range;
-
+	LightType  type;
+	vec3	   color;
+	vec3       direction;
+	vec3	   position;
+	
 };
 
 const u16 indices[] = {
@@ -201,9 +217,16 @@ u8 GetComponentCount(GLenum attributeType);
 
 struct App
 {
+	//Silde 6
+	Buffer cbuffer;
+	u32 globalParamsOffset;
+	u32 globalParamsSize;
 
-	mat4 worlViewProjectiondMatrix;
-	mat4 worldMatrix;
+
+	GLint uniformBufferAlignment;
+
+	mat4 projection;
+	mat4 view;
 	GLuint bufferHandle;
 	Camerai* camerai;
 
@@ -234,6 +257,7 @@ struct App
 	std::vector<Program>  programs;
 
 	std::vector<Entity> entities;
+	std::vector<Light> lights;
 
 	// program indices
 	u32 texturedGeometryProgramIdx;
