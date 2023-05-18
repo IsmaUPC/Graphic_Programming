@@ -179,6 +179,14 @@ struct Material
 	u32 bumpTextureIdx;
 };
 
+struct Light
+{
+	int type;
+	vec3 color;
+	vec3 position;
+	float range;
+
+};
 
 const u16 indices[] = {
    0,1,2,
