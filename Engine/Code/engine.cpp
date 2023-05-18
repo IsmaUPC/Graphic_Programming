@@ -13,6 +13,7 @@
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <GLFW/glfw3.h>
 
 
 
@@ -190,8 +191,6 @@ u32 LoadTexture2D(App* app, const char* filepath)
 		return UINT32_MAX;
 	}
 }
-
-
 
 
 void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices)
@@ -440,6 +439,7 @@ u32 LoadModel(App* app, const char* filename)
 
 void Init(App* app)
 {
+
 	// TODO: Initialize your resources here!
 	// - vertex buffers
 	// - element/index buffers
@@ -533,6 +533,12 @@ void Init(App* app)
 	entity1.worldMatrix = glm::lookAt(vec3(0), vec3(0, 0, 1), vec3(0, 1, 0));
 	app->entities.push_back(entity1);
 
+	Entity entity2;
+	app->model = LoadModel(app, "Patrick/Patrick.obj");
+	entity2.modelIndex = app->model;
+	entity2.worldMatrix = glm::lookAt(vec3(1,0,10), vec3(10, 0, 1), vec3(0, 1, 0));
+	app->entities.push_back(entity2);
+
 	app->info.glVersion = reinterpret_cast<const char*> (glGetString(GL_VERSION));
 	app->info.glRender = reinterpret_cast<const char*>  (glGetString(GL_RENDERER));
 	app->info.glVendor = reinterpret_cast<const char*>  (glGetString(GL_VENDOR));
@@ -608,19 +614,54 @@ void Gui(App* app)
 void Update(App* app)
 {
 	// You can handle app->input keyboard/mouse here
-	const float cameraSpeed = 0.5f; // adjust accordingly
-	if (app->input.keys[Key::K_W] == ButtonState::BUTTON_PRESS) {
+	float cameraSpeed = 5.f *app->deltaTime;// adjust accordingly
+	if (app->input.keys[Key::K_W] == ButtonState::BUTTON_PRESSED) {
 		app->camerai->pos += cameraSpeed * app->camerai->camDir;
 	}
-	if (app->input.keys[Key::K_S] == ButtonState::BUTTON_PRESS) {
+	if (app->input.keys[Key::K_S] == ButtonState::BUTTON_PRESSED) {
 		app->camerai->pos -= cameraSpeed * app->camerai->camDir;
 	}
-	if (app->input.keys[Key::K_A] == ButtonState::BUTTON_PRESS) {
+	if (app->input.keys[Key::K_A] == ButtonState::BUTTON_PRESSED) {
 		app->camerai->pos -= glm::normalize(glm::cross(app->camerai->camDir, app->camerai->upCamVec)) * cameraSpeed;
 	}
-	if (app->input.keys[Key::K_D] == ButtonState::BUTTON_PRESS) {
+	if (app->input.keys[Key::K_D] == ButtonState::BUTTON_PRESSED) {
 		app->camerai->pos += glm::normalize(glm::cross(app->camerai->camDir, app->camerai->upCamVec)) * cameraSpeed;
 	}
+	if (app->input.mouseButtons[LEFT] == ButtonState::BUTTON_RELEASE) {
+		app->firstMouse = true;
+	}
+	if (app->input.mouseButtons[LEFT] == ButtonState::BUTTON_PRESSED) {
+		if (app->firstMouse)
+		{
+			app->lastX= app->input.mousePos.x;
+			app->lastY= app->input.mousePos.y;
+			app->firstMouse = false;
+		}
+		app->input.mousePos;
+		float xoffset = app->input.mousePos.x - app->lastX;
+		float yoffset = app->lastY - app->input.mousePos.y;
+		app->lastX = app->input.mousePos.x;
+		app->lastY = app->input.mousePos.y;
+
+		float sensitivity = 0.1f;
+		xoffset *= sensitivity;
+		yoffset *= sensitivity;
+
+		 app->yaw += xoffset;
+		 app->pitch += yoffset;
+
+		if (app->pitch > 89.0f)
+			app->pitch = 89.0f;
+		if (app->pitch < -89.0f)
+			app->pitch = -89.0f;
+
+		glm::vec3 direction;
+		direction.x = cos(glm::radians(app->yaw)) * cos(glm::radians(app->pitch));
+		direction.y = sin(glm::radians(app->pitch));
+		direction.z = sin(glm::radians(app->yaw)) * cos(glm::radians(app->pitch));
+		app->camerai->camDir = glm::normalize(direction);
+	}
+
 
 	glBindBuffer(GL_UNIFORM_BUFFER, app->bufferHandle);
 	u8* bufferData = (u8*)glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);

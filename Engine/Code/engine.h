@@ -41,7 +41,7 @@ public:
 	{
 		pos = { 0,0,0 };
 		upGlobalVec = { 0,1,0 };
-		rCamVec = { 0,1,0 };
+		rCamVec = { 1,0,0 };
 		camDir = { 0,0,-1 };
 	}
 
@@ -205,6 +205,13 @@ struct App
 
 	// Input
 	Input input;
+	bool firstMouse = true;
+	float lastX;
+	float lastY;
+
+	float yaw= -90.0f;
+	float pitch ;
+
 
 	// Graphics
 	char gpuName[64];
